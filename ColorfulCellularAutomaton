@@ -1,0 +1,427 @@
+import java.applet.Applet;
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.event.ActionListener;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.ListIterator;
+import java.awt.event.ActionEvent;
+import javax.swing.Timer;
+
+public class ColorfulCellularAutomaton extends Applet implements MouseListener, MouseMotionListener, ComponentListener, KeyListener{	
+	
+	protected double delayInSeconds = .2;
+	protected int cellWidth = 10, savedEvolutions = 4, min = 2, max = 3, birthVal = 3, vCells, hCells;
+	protected boolean cellsInput = true, drawGrid = false, drawPulsar = false;
+	protected ArrayList<EvolutionState> states = new ArrayList<EvolutionState>();
+	protected Color cellColor = Cell.colors.get(0), bgColor = new HSLColor(cellColor).getComplementary();
+	protected EvolutionState currentState, newState;
+	protected Timer timer;
+	protected ActionListener listener;
+	protected ListIterator<Color> colorIterator = Cell.colors.listIterator();
+	private static final long serialVersionUID = 1L;
+	protected Image boi;
+	protected Graphics bog;
+	
+	//timer and other fun variables
+	@Override
+	public void init() {
+		addMouseListener(this);
+		addMouseMotionListener(this);
+		addComponentListener(this);
+		addKeyListener(this);
+		vCells = getHeight() / cellWidth;
+		hCells = getWidth() / cellWidth;
+		currentState = new EvolutionState(vCells, hCells);
+		newState = new EvolutionState(vCells, hCells);
+		listener = new ActionListener() { @Override public void actionPerformed(ActionEvent e) { runLife(); } };    
+	    timer = new Timer((int) (delayInSeconds * 1000), listener);
+	}
+	
+	@Override
+	public void mouseClicked(MouseEvent click) {	
+		cellsInput = true;
+		renderCell(click);
+	}
+	
+	
+	@Override
+	public void mouseDragged(MouseEvent click) {	
+		cellsInput = true;
+		renderCell(click);
+	}
+	
+	//draws cell in grid configuration
+	public void renderCell(MouseEvent click){
+		int inputX = click.getX(), inputY = click.getY();
+		//match input coordinate to corresponding x,y value in upper left corner used to draw cell
+		inputSearch: 
+		for(int x = 0; x <= getWidth() - cellWidth; x += cellWidth){
+		for(int y = 0; y <= getHeight() - cellWidth; y += cellWidth){
+			if( (inputX >= x && inputX < x + cellWidth) && (inputY >= y && inputY < y + cellWidth) ){
+				if(drawPulsar){
+					int yMax = 4, xMax = 4;
+					while(getHeight() - (cellWidth * yMax) <= inputY) yMax--;
+					while(getWidth() - (cellWidth * xMax) <= inputX) xMax--;
+					for(int i = 0; i <= yMax; i++){
+						currentState.addCell(new Cell(x, y + i * cellWidth));
+						if(xMax == 4) currentState.addCell(new Cell(x + 4 * cellWidth, y + i * cellWidth));
+					}
+					if(xMax >= 2) currentState.addCell(new Cell(x + 2 * cellWidth, y));
+					if(yMax == 4 && xMax >= 2) currentState.addCell(new Cell(x + 2 * cellWidth, y + 4 * cellWidth));
+				}else currentState.addCell(new Cell(x, y));
+				repaint();
+				break inputSearch;
+			}
+		}
+		}
+	}
+	
+	@Override
+	public void paint(Graphics g){
+		g.setColor(bgColor);
+		g.fillRect(0,0,getWidth(),getHeight());
+		if(cellsInput){ drawInputCells(g); }
+		else if(!cellsInput){ drawAllCells(g); }
+		if(drawGrid){
+			g.setColor(Color.gray);
+			for(int x = 0; x < getWidth() - cellWidth; x += cellWidth){
+			for(int y = 0; y < getHeight() - cellWidth; y += cellWidth){
+				g.drawRect(x, y, cellWidth, cellWidth);
+			}
+			}
+		}
+	}
+
+	//paints button and cells in current state
+	public void drawInputCells(Graphics g){
+		g.setColor(cellColor);
+		for(Cell cell: currentState.getAllCells()) g.fillRect(cell.getX(), cell.getY(), cellWidth, cellWidth);
+		drawAllCells(g);	
+	}
+	
+	//draws user input cells and previous states if existing
+	public void drawAllCells(Graphics g){
+		Color fade = cellColor;
+		int dR = cellColor.getRed() / (savedEvolutions + 2);
+		int dG = cellColor.getGreen() / (savedEvolutions + 2);
+		int dB = cellColor.getBlue() / (savedEvolutions + 2);
+		for(int state = 0; state < states.size(); state++){
+			if(state != 0) fade = new Color(fade.getRed() - dR, fade.getGreen() - dG, fade.getBlue() - dB); //lighter to darker
+			g.setColor(fade);
+			for(Cell cell: states.get(state).getAllCells()) g.fillRect(cell.getX(), cell.getY(), cellWidth, cellWidth);
+		}
+	}
+	
+	//buffering http://bit.ly/2kvDOks
+	@Override
+	public final void update(Graphics g) {
+		boi = createImage(getWidth(), getHeight());
+		bog = boi.getGraphics();
+		bog.setColor(getBackground());
+		bog.fillRect(0, 0, getWidth(), getHeight());
+		bog.setColor(getForeground());
+		paint(bog);
+		g.drawImage(boi, 0, 0, this);
+	}
+	
+	//repaints new iteration, following rules for deaths and births
+	public void runLife(){
+		if(states.size() >= savedEvolutions) states.remove(0); //saves fixed # of previous automata states
+		states.add(currentState.clone());
+		newState = currentState.clone(); //build new state off previous
+		
+		//kill if surrounded by fewer than pop min, greater than max, birth if surrounded by reproduction amount
+		for(int r = 0; r < vCells; r++){
+		for(int c = 0; c < hCells; c++){
+			int neighbors = checkLegalCells(r, c);
+			if((neighbors < min || neighbors > max) && currentState.getCell(r, c) != null) newState.removeCell(currentState.getCell(r, c));
+			if(neighbors == birthVal) newState.addCell(new Cell(c * cellWidth, r * cellWidth));
+		}
+		}
+		
+		currentState = newState.clone(); //replace current state with new
+		repaint();
+	}
+	
+	//determines which cells to check depending on location of cell relative to number of cells in x,y direction
+	public int checkLegalCells(int r, int c){
+		//determine position in array
+		boolean isTop    = (r == 0); 
+		boolean isBottom = (r == vCells - 1);
+		boolean isLeft   = (c == 0);
+		boolean isRight  = (c == hCells - 1);
+		
+		//wrap values around AKA nifty toroidal action!
+		int top    = (isTop)?    vCells - 1 : r-1;
+		int bottom = (isBottom)? 0          : r+1;
+		int left   = (isLeft)?   hCells - 1 : c-1;
+		int right  = (isRight)?  0          : c+1;
+		
+		//create neighbors based on the left right top and bottom values found
+		int[][] neighbors = new int[][]{
+				{top,    left},{top,    c},{top,    right},
+				{r,      left}            ,{r,      right},
+				{bottom, left},{bottom, c},{bottom, right}};
+		
+		int adjacentCells = 0;	
+		for(int i=0;i<8;i++) if(currentState.getCell(neighbors[i][0],neighbors[i][1]) != null) adjacentCells++; //add all the neighbors together
+		return adjacentCells;
+	}
+	
+	//only draw cells within applet size
+	@Override
+	public void componentResized(ComponentEvent e) {
+		timer.stop();
+		vCells = getHeight() / cellWidth;
+		hCells = getWidth() / cellWidth;
+		currentState.sizeChange(vCells, hCells);
+		newState.sizeChange(vCells, hCells);
+	}
+	
+	@Override
+	public void keyPressed(KeyEvent e) { 
+		switch(e.getKeyCode()){
+			case KeyEvent.VK_SPACE:
+				if(cellsInput) cellsInput = false;
+				if(!timer.isRunning()) timer.start();
+				else timer.stop();
+				break;
+			case KeyEvent.VK_RIGHT:
+				timer.stop();
+				if(delayInSeconds > .05) delayInSeconds -= .025;
+				timer = new Timer((int) (delayInSeconds * 1000), listener);
+				timer.start();
+				break;
+			case KeyEvent.VK_LEFT:
+				timer.stop();
+				delayInSeconds += .025; 
+				timer = new Timer((int) (delayInSeconds * 1000), listener);
+				timer.start();
+				break;
+			case KeyEvent.VK_UP:
+				if (colorIterator.hasPrevious()){
+					cellColor = colorIterator.previous();
+					bgColor = new HSLColor(cellColor).getComplementary();
+					repaint();
+				}
+				break;
+			case KeyEvent.VK_DOWN:
+				if (colorIterator.hasNext()){
+					cellColor = colorIterator.next();
+					bgColor = new HSLColor(cellColor).getComplementary();
+					repaint();
+				}
+				break;
+			case KeyEvent.VK_G:
+				drawGrid = !drawGrid;
+				repaint();
+				break;
+			case KeyEvent.VK_P:
+				drawPulsar = !drawPulsar;
+				break;
+			case KeyEvent.VK_B:
+				int initX = 8 * cellWidth;
+				int initY = 14 * cellWidth;
+				int pulsarWidthFromInit = cellWidth * 10;
+				for(int shift = 0; shift <= 9 * cellWidth; shift += 9 * cellWidth){
+					for(int x = initX + (shift); x < getWidth() - pulsarWidthFromInit; x += (cellWidth * 18)){
+					for(int y = initY + (2 * shift); y < getHeight() - pulsarWidthFromInit; y += 2 * (cellWidth * 18)){
+						for(int i = 0; i <= 4; i++){
+							currentState.addCell(new Cell(x, y + i * cellWidth));
+							currentState.addCell(new Cell(x + 4 * cellWidth, y + i * cellWidth));
+						}
+						currentState.addCell(new Cell(x + 2 * cellWidth, y));
+						currentState.addCell(new Cell(x + 2 * cellWidth, y + 4 * cellWidth));
+					}
+					}
+				}
+				repaint();
+				break;
+			default:
+				System.out.println("Ayy lmao");
+		}
+	}
+	
+	public void componentShown(ComponentEvent e){ 
+		System.out.println("Hey, that's pretty good");
+	}
+	
+	//ignored inherited methods...
+	
+	public void mouseEntered(MouseEvent e) { } public void mouseExited(MouseEvent e) { } public void mousePressed(MouseEvent e) { } 
+	public void mouseReleased(MouseEvent e) { } public void mouseMoved(MouseEvent e) {} public void componentHidden(ComponentEvent e) { }
+	public void componentMoved(ComponentEvent e) { } public void keyReleased(KeyEvent e) { } public void keyTyped(KeyEvent e) { }
+	
+}
+
+class Cell extends ColorfulCellularAutomaton{
+	private static final long serialVersionUID = 1L;
+	private int cellWidth = super.cellWidth;
+	private int x, y, row, column;
+	protected static Color rosie = Color.decode("#D0000D"), shane = Color.decode("#6FADE9"), papa = Color.decode("#9AA9A"),
+			bless = Color.decode("#B13355"), fedoras = Color.decode("#FED024"), and = Color.decode("#A5D"), ebolas = Color.decode("#E80145");
+	protected static ArrayList<Color> colors = new ArrayList<>(Arrays.asList(rosie, shane, papa, bless, fedoras, and, ebolas));
+	
+	//defines coordinate in terms of ints, row/column determined relative to x,y coordinate
+	public Cell(int x, int y){ 
+		this.x = x;
+		this.y = y;
+		row    = y / cellWidth;
+		column = x / cellWidth;
+	}
+	
+	//getters
+	
+	public int getX(){ return x; }
+	
+	public int getY(){ return y; }
+	
+	public int getRow(){ return row; }
+	
+	public int getColumn(){ return column; }
+}
+
+class EvolutionState extends ColorfulCellularAutomaton{
+	private static final long serialVersionUID = 1L;
+	private Cell[][] state;
+	private ArrayList<Cell> aliveCells = new ArrayList<Cell>();
+	private int vCells, hCells;
+	
+	public EvolutionState(int vCells, int hCells){
+		state = new Cell[vCells][hCells];
+		this.vCells = vCells;
+		this.hCells = hCells;
+	}
+	
+	//adds cell to arraylist of alive cells, corresponding r,c location based on x,y coordinate, increases number of cells
+	
+	public void addCell(Cell inputCell){
+		boolean existingCell = false;
+		for(Cell cell : getAllCells()){
+			if(cell.getX() == inputCell.getX() && cell.getY() == inputCell.getY()){
+				existingCell = true;
+				break;
+			}
+		}
+		
+		if(!existingCell){
+			aliveCells.add(inputCell);
+			state[inputCell.getRow()][inputCell.getColumn()] = inputCell;
+		}
+	}
+	
+	//removes cell from arraylist of alive cells, corresponding r,c location based on x,y coordinate, decreases number of cells
+	
+	public void removeCell(Cell celltoRemove){
+		aliveCells.remove(celltoRemove);
+		state[celltoRemove.getRow()][celltoRemove.getColumn()] = null;
+	}
+	
+	public void sizeChange(int newNumVerticalCells, int newNumHorizontalCells){
+		Cell[][] newSizeState = new Cell[newNumVerticalCells][newNumHorizontalCells];		
+		for(int r = 0; r < vCells; r++)
+		for(int c = 0; c < hCells; c++)
+			try{ newSizeState[r][c] = state[r][c]; }
+			catch(ArrayIndexOutOfBoundsException cellOutOfRange){ if(state[r][c] != null) removeCell(state[r][c]); }		
+		vCells = newNumVerticalCells;
+		hCells = newNumHorizontalCells;
+		state = newSizeState.clone();
+	}
+	
+	//creates an evolution state containing all points of copied state
+	
+	@Override
+	public EvolutionState clone(){
+		EvolutionState state = new EvolutionState(vCells, hCells);
+		for(Cell cell: getAllCells()) state.addCell(cell);
+		return state;
+	}
+	
+	//getters
+	
+	public Cell getCell(int cellRow, int cellColumn){ return state[cellRow][cellColumn]; }
+	
+	public ArrayList<Cell> getAllCells(){ return aliveCells; }
+}
+
+//Rob Camick is bae https://tips4java.wordpress.com/2009/07/05/hsl-color/
+class HSLColor{
+	private float[] hsl;
+	private float alpha;
+
+	public HSLColor(Color rgb)
+	{
+		hsl = fromRGB( rgb );
+		alpha = rgb.getAlpha() / 255.0f;
+	}
+
+	public float getAlpha(){ return alpha; }
+
+	public Color getComplementary()
+	{
+		float hue = (hsl[0] + 180.0f) % 360.0f;
+		return toRGB(hue, hsl[1], hsl[2]);
+	}
+
+	public static float[] fromRGB(Color color)
+	{
+		float[] rgb = color.getRGBColorComponents( null );
+		float r = rgb[0];
+		float g = rgb[1];
+		float b = rgb[2];
+		float min = Math.min(r, Math.min(g, b));
+		float max = Math.max(r, Math.max(g, b));
+		float h = 0;
+		if (max == min)    h = 0;
+		else if (max == r) h = ((60 * (g - b) / (max - min)) + 360) % 360;
+		else if (max == g) h = (60 * (b - r) / (max - min)) + 120;
+		else if (max == b) h = (60 * (r - g) / (max - min)) + 240;
+		float l = (max + min) / 2;
+		float s = 0;
+		if (max == min)    s = 0;
+		else if (l <= .5f) s = (max - min) / (max + min);
+		else			   s = (max - min) / (2 - max - min);
+		return new float[] {h, s * 100, l * 100};
+	}
+	
+	public static Color toRGB(float h, float s, float l){ return toRGB(h, s, l, 1.0f); }
+	
+	public static Color toRGB(float h, float s, float l, float alpha)
+	{
+		h = h % 360.0f;
+		h /= 360f;
+		s /= 100f;
+		l /= 100f;
+		float q = 0;
+		if (l < 0.5) q = l * (1 + s);
+		else 		 q = (l + s) - (s * l);
+		float p = 2 * l - q;
+		float r = Math.max(0, HueToRGB(p, q, h + (1.0f / 3.0f)));
+		float g = Math.max(0, HueToRGB(p, q, h));
+		float b = Math.max(0, HueToRGB(p, q, h - (1.0f / 3.0f)));
+		r = Math.min(r, 1.0f);
+		g = Math.min(g, 1.0f);
+		b = Math.min(b, 1.0f);
+		return new Color(r, g, b, alpha);
+	}
+	
+	
+	private static float HueToRGB(float p, float q, float h)
+	{
+		if (h < 0) h += 1;
+		if (h > 1 ) h -= 1;
+		if (6 * h < 1) return p + ((q - p) * 6 * h);
+		if (2 * h < 1 ) return  q;
+		if (3 * h < 2) return p + ( (q - p) * 6 * ((2.0f / 3.0f) - h) );
+   		return p;
+	}
+}
