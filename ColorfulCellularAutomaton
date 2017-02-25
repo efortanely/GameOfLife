@@ -69,8 +69,10 @@ public class ColorfulCellularAutomaton extends Applet implements MouseListener, 
 			if( (inputX >= x && inputX < x + cellWidth) && (inputY >= y && inputY < y + cellWidth) ){
 				if(drawPulsar){
 					int yMax = 4, xMax = 4;
-					while(getHeight() - (cellWidth * yMax) <= inputY) yMax--;
-					while(getWidth() - (cellWidth * xMax) <= inputX) xMax--;
+					int width = getWidth() - (getWidth() % cellWidth);
+					int height = getHeight() - (getHeight() % cellWidth);
+					while(height - (cellWidth * yMax) <= inputY) yMax--;
+					while(width - (cellWidth * xMax) <= inputX) xMax--;
 					for(int i = 0; i <= yMax; i++){
 						currentState.addCell(new Cell(x, y + i * cellWidth));
 						if(xMax == 4) currentState.addCell(new Cell(x + 4 * cellWidth, y + i * cellWidth));
