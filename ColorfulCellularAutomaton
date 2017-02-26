@@ -19,7 +19,7 @@ import javax.swing.Timer;
 public class ColorfulCellularAutomaton extends Applet implements MouseListener, MouseMotionListener, ComponentListener, KeyListener{	
 	
 	protected double delayInSeconds = .2;
-	protected int cellWidth = 10, savedEvolutions = 4, min = 2, max = 3, birthVal = 3, vCells, hCells;
+	protected int cellWidth = 10, savedEvolutions = 4, min = 1, max = 5, birthVal = 3, vCells, hCells;
 	protected boolean cellsInput = true, drawGrid = false, drawPulsar = false;
 	protected ArrayList<EvolutionState> states = new ArrayList<EvolutionState>();
 	protected Color cellColor = Cell.colors.get(0), bgColor = new HSLColor(cellColor).getComplementary();
@@ -270,8 +270,8 @@ class Cell extends ColorfulCellularAutomaton{
 	private int cellWidth = super.cellWidth;
 	private int x, y, row, column;
 	protected static Color rosie = Color.decode("#D0000D"), shane = Color.decode("#6FADE9"), papa = Color.decode("#9AA9A"),
-			bless = Color.decode("#B13355"), fedoras = Color.decode("#FED024"), and = Color.decode("#A5D"), ebolas = Color.decode("#E80145");
-	protected static ArrayList<Color> colors = new ArrayList<>(Arrays.asList(rosie, shane, papa, bless, fedoras, and, ebolas));
+			bless = Color.decode("#B77355"), goofs = Color.decode("#600F5"), and = Color.decode("#AAA5D"), gaffs = Color.decode("#6AFF5");
+	protected static ArrayList<Color> colors = new ArrayList<>(Arrays.asList(rosie, shane, papa, bless, goofs, and, gaffs));
 	
 	//defines coordinate in terms of ints, row/column determined relative to x,y coordinate
 	public Cell(int x, int y){ 
@@ -360,22 +360,19 @@ class HSLColor{
 	private float[] hsl;
 	private float alpha;
 
-	public HSLColor(Color rgb)
-	{
+	public HSLColor(Color rgb){
 		hsl = fromRGB( rgb );
 		alpha = rgb.getAlpha() / 255.0f;
 	}
 
 	public float getAlpha(){ return alpha; }
 
-	public Color getComplementary()
-	{
+	public Color getComplementary(){
 		float hue = (hsl[0] + 180.0f) % 360.0f;
 		return toRGB(hue, hsl[1], hsl[2]);
 	}
 
-	public static float[] fromRGB(Color color)
-	{
+	public static float[] fromRGB(Color color){
 		float[] rgb = color.getRGBColorComponents( null );
 		float r = rgb[0];
 		float g = rgb[1];
@@ -397,8 +394,7 @@ class HSLColor{
 	
 	public static Color toRGB(float h, float s, float l){ return toRGB(h, s, l, 1.0f); }
 	
-	public static Color toRGB(float h, float s, float l, float alpha)
-	{
+	public static Color toRGB(float h, float s, float l, float alpha){
 		h = h % 360.0f;
 		h /= 360f;
 		s /= 100f;
@@ -417,8 +413,7 @@ class HSLColor{
 	}
 	
 	
-	private static float HueToRGB(float p, float q, float h)
-	{
+	private static float HueToRGB(float p, float q, float h){
 		if (h < 0) h += 1;
 		if (h > 1 ) h -= 1;
 		if (6 * h < 1) return p + ((q - p) * 6 * h);
