@@ -1,7 +1,9 @@
+
 import java.applet.Applet;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
@@ -13,277 +15,385 @@ import java.awt.event.MouseMotionListener;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.ListIterator;
-import java.awt.event.ActionEvent;
+
 import javax.swing.Timer;
 
-public class ColorfulCellularAutomaton extends Applet implements ActionListener, MouseListener, MouseMotionListener, ComponentListener, KeyListener{	
-	double delayInSeconds = .2;
-	int cellWidth = 15, savedEvolutions = 4, min = 2, max = 3, birthVal = 3, vCells, hCells;
-	boolean cellsInput = true, drawGrid = false, drawPulsar = false;
-	ArrayList<EvolutionState> states = new ArrayList<EvolutionState>();
-	Color cellColor = Cell.colors.get(0), bgColor = new HSLColor(cellColor).getComplementary();
-	EvolutionState currentState, newState;
-	Timer timer;
-	ListIterator<Color> colorIterator = Cell.colors.listIterator();
-	
-	//timer and other fun variables
+public class ColorfulCellularAutomaton extends Applet
+implements ActionListener, MouseListener, MouseMotionListener, ComponentListener, KeyListener {
+	private int vCells;
+	private int hCells;
+	private int savedEvolutions;
+	private double delayInSeconds;
+	private boolean cellsInput;
+	private boolean drawPulsar;
+	private boolean drawGrid;
+	private ListIterator<Color> colorIterator;
+	private ArrayList<EvolutionState> states;
+	private ArrayList<Color> colors;
+	private Color cellColor;
+	private Color bgColor;
+	private EvolutionState currentState;
+	private EvolutionState newState;
+	protected int cellWidth;
+	private Timer timer;
+	private Image boi;
+	private Graphics bog;
+
+	public class Cell {
+		private int x, y;
+		private int row, column;
+
+		// defines coordinate in terms of ints, row/column determined relative to
+		// x,y coordinate
+		public Cell(int x, int y) {
+			this.x = x;
+			this.y = y;
+			this.row = y / ColorfulCellularAutomaton.this.cellWidth;
+			this.column = x / ColorfulCellularAutomaton.this.cellWidth;
+		}
+
+		public int getX() {
+			return this.x;
+		}
+
+		public int getY() {
+			return this.y;
+		}
+
+		public int getRow() {
+			return this.row;
+		}
+
+		public int getColumn() {
+			return this.column;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if(!(obj instanceof Cell))
+				return false;
+			else if(obj==null)
+				return false;
+			else if(obj == this)
+				return true;
+			else {
+				Cell other = (Cell) obj;
+				return this.x == other.getX() && this.y == other.getY();
+			}
+		}
+	}
+
+	// timer and other fun variables
 	@Override
 	public void init() {
-		addMouseListener(this);
-		addMouseMotionListener(this);
-		addComponentListener(this);
-		addKeyListener(this);
-		vCells = getHeight() / cellWidth;
-		hCells = getWidth() / cellWidth;
-		currentState = new EvolutionState(vCells, hCells);
-		newState = new EvolutionState(vCells, hCells);
-	    timer = new Timer((int) (delayInSeconds * 1000), this);
+		this.addMouseListener(this);
+		this.addMouseMotionListener(this);
+		this.addComponentListener(this);
+		this.addKeyListener(this);
+		this.cellWidth = 10;
+		this.vCells = this.getHeight() / this.cellWidth;
+		this.hCells = this.getWidth() / this.cellWidth;
+		this.currentState = new EvolutionState(this.vCells, this.hCells);
+		this.newState = new EvolutionState(this.vCells, this.hCells);
+		this.timer = new Timer((int) (this.delayInSeconds * 1000), this);
+		this.delayInSeconds = 0.2;
+		this.savedEvolutions = 4;
+		this.cellsInput = true;
+		this.drawGrid = false;
+		this.drawPulsar = false;
+		this.states = new ArrayList<>();
+		this.colors = new ArrayList<>(Arrays.asList(Color.decode("#D0000D"), Color.decode("#9AA9A"),
+				Color.decode("#B77355"), Color.decode("#600F5"), Color.decode("#AAA5D"), Color.decode("#6AFF5")));
+		this.cellColor = this.colors.get(0);
+		this.bgColor = new HSLColor(this.cellColor).getComplementary();
+		this.colorIterator = this.colors.listIterator();
 	}
-	
-	public void actionPerformed(ActionEvent e){
-		runLife();
-	}
-	
+
 	@Override
-	public void mouseClicked(MouseEvent click) {	
-		cellsInput = true;
-		renderCell(click);
+	public void actionPerformed(ActionEvent e) {
+		this.runLife();
 	}
-	
-	
+
 	@Override
-	public void mouseDragged(MouseEvent click) {	
-		cellsInput = true;
-		renderCell(click);
+	public void mouseClicked(MouseEvent click) {
+		this.cellsInput = true;
+		this.renderCell(click);
 	}
-	
-	//draws cell in grid configuration
-	public void renderCell(MouseEvent click){
-		int inputX = click.getX(), inputY = click.getY();
-		//match input coordinate to corresponding x,y value in upper left corner used to draw cell
-		inputSearch: 
-		for(int x = 0; x <= getWidth() - cellWidth; x += cellWidth){
-		for(int y = 0; y <= getHeight() - cellWidth; y += cellWidth){
-			if( (inputX >= x && inputX < x + cellWidth) && (inputY >= y && inputY < y + cellWidth) ){
-				if(drawPulsar){
-					int yMax = 4, xMax = 4;
-					int width = getWidth() - (getWidth() % cellWidth);
-					int height = getHeight() - (getHeight() % cellWidth);
-					while(height - (cellWidth * yMax) <= inputY) yMax--;
-					while(width - (cellWidth * xMax) <= inputX) xMax--;
-					for(int i = 0; i <= yMax; i++){
-						currentState.addCell(new Cell(x, y + i * cellWidth));
-						if(xMax == 4) currentState.addCell(new Cell(x + 4 * cellWidth, y + i * cellWidth));
+
+	@Override
+	public void mouseDragged(MouseEvent click) {
+		this.cellsInput = true;
+		this.renderCell(click);
+	}
+
+	// draws cell in grid configuration
+	public void renderCell(MouseEvent click) {
+		int inputX = click.getX();
+		int inputY = click.getY();
+		// match input coordinate to corresponding x,y value in upper left
+		// corner used to draw cell
+		for (int x = 0; x <= this.getWidth() - this.cellWidth; x += this.cellWidth) {
+			for (int y = 0; y <= this.getHeight() - this.cellWidth; y += this.cellWidth) {
+				boolean clickContainedInXBounds = inputX >= x && inputX < x + this.cellWidth;
+				boolean clickContainedInYBounds = inputY >= y && inputY < y + this.cellWidth;
+				if (clickContainedInXBounds && clickContainedInYBounds) {
+					// draw a pulsar contained in bounds of screen
+					if (this.drawPulsar) {
+						//cut off overhanging parts of screen that don't contain a cell
+						int screenBoundsX = this.getWidth() - this.getWidth() % this.cellWidth;
+						int screenBoundsY = this.getHeight() - this.getHeight() % this.cellWidth;
+						ArrayList<Cell> possibleNewCells = new ArrayList<>();
+
+						//the two bars down the side
+						for (int i = 0; i <= 4; i++) {
+							possibleNewCells.add(new Cell(x, y + i * this.cellWidth));
+							possibleNewCells.add(new Cell(x + 4 * this.cellWidth, y + i * this.cellWidth));
+						}
+
+						//the two dots
+						possibleNewCells.add(new Cell(x + 2 * this.cellWidth, y));
+						possibleNewCells.add(new Cell(x + 2 * this.cellWidth, y + 4 * this.cellWidth));
+
+						for (Cell cell : possibleNewCells) {
+							if (cell.x < screenBoundsX && cell.y < screenBoundsY) {
+								this.currentState.addCell(cell);
+							}
+						}
+					} else {
+						this.currentState.addCell(new Cell(x, y));
 					}
-					if(xMax >= 2) currentState.addCell(new Cell(x + 2 * cellWidth, y));
-					if(yMax == 4 && xMax >= 2) currentState.addCell(new Cell(x + 2 * cellWidth, y + 4 * cellWidth));
-				}else currentState.addCell(new Cell(x, y));
-				repaint();
-				break inputSearch;
-			}
-		}
-		}
-	}
-	
-	@Override
-	public void paint(Graphics g){
-		g.setColor(bgColor);
-		g.fillRect(0,0,getWidth(),getHeight());
-		if(cellsInput){ drawInputCells(g); }
-		else if(!cellsInput){ drawAllCells(g); }
-		if(drawGrid){
-			g.setColor(Color.gray);
-			for(int x = 0; x < getWidth() - cellWidth; x += cellWidth){
-			for(int y = 0; y < getHeight() - cellWidth; y += cellWidth){
-				g.drawRect(x, y, cellWidth, cellWidth);
-			}
+					this.repaint();
+					return;
+				}
 			}
 		}
 	}
 
-	//paints button and cells in current state
-	public void drawInputCells(Graphics g){
-		g.setColor(cellColor);
-		for(Cell cell: currentState.getAllCells()) g.fillRect(cell.getX(), cell.getY(), cellWidth, cellWidth);
-		drawAllCells(g);	
-	}
-	
-	//draws user input cells and previous states if existing
-	public void drawAllCells(Graphics g){
-		Color fade = cellColor;
-		int dR = cellColor.getRed() / (savedEvolutions + 2);
-		int dG = cellColor.getGreen() / (savedEvolutions + 2);
-		int dB = cellColor.getBlue() / (savedEvolutions + 2);
-		for(int state = 0; state < states.size(); state++){
-			if(state != 0) fade = new Color(fade.getRed() - dR, fade.getGreen() - dG, fade.getBlue() - dB); //lighter to darker
-			g.setColor(fade);
-			for(Cell cell: states.get(state).getAllCells()) g.fillRect(cell.getX(), cell.getY(), cellWidth, cellWidth);
+	@Override
+	public void paint(Graphics g) {
+		g.setColor(this.bgColor);
+		g.fillRect(0, 0, this.getWidth(), this.getHeight());
+		if (this.cellsInput) {
+			this.drawInputCells(g);
+		} else if (!this.cellsInput) {
+			this.drawAllCells(g);
+		}
+		if (this.drawGrid) {
+			g.setColor(Color.gray);
+			for (int x = 0; x < this.getWidth() - this.cellWidth; x += this.cellWidth) {
+				for (int y = 0; y < this.getHeight() - this.cellWidth; y += this.cellWidth) {
+					g.drawRect(x, y, this.cellWidth, this.cellWidth);
+				}
+			}
 		}
 	}
-	
-	Image boi;
-	Graphics bog;
-	
-	//buffering http://bit.ly/2kvDOks
+
+	// paints button and cells in current state
+	public void drawInputCells(Graphics g) {
+		g.setColor(this.cellColor);
+		for (Cell cell : this.currentState.getAllCells())
+			g.fillRect(cell.getX(), cell.getY(), this.cellWidth, this.cellWidth);
+		this.drawAllCells(g);
+	}
+
+	// draws user input cells and previous states if existing
+	public void drawAllCells(Graphics g) {
+		Color fade = this.cellColor;
+		int dR = this.cellColor.getRed() / (this.savedEvolutions + 2);
+		int dG = this.cellColor.getGreen() / (this.savedEvolutions + 2);
+		int dB = this.cellColor.getBlue() / (this.savedEvolutions + 2);
+		for (int state = 0; state < this.states.size(); state++) {
+			// lighter to darker
+			if (state != 0)
+				fade = new Color(fade.getRed() - dR, fade.getGreen() - dG, fade.getBlue() - dB);
+			g.setColor(fade);
+			for (Cell cell : this.states.get(state).getAllCells())
+				g.fillRect(cell.getX(), cell.getY(), this.cellWidth, this.cellWidth);
+		}
+	}
+
+	// buffering http://bit.ly/2kvDOks
 	@Override
 	public final void update(Graphics g) {
-		boi = createImage(getWidth(), getHeight());
-		bog = boi.getGraphics();
-		bog.setColor(getBackground());
-		bog.fillRect(0, 0, getWidth(), getHeight());
-		bog.setColor(getForeground());
-		paint(bog);
-		g.drawImage(boi, 0, 0, this);
+		this.boi = this.createImage(this.getWidth(), this.getHeight());
+		this.bog = this.boi.getGraphics();
+		this.bog.setColor(this.getBackground());
+		this.bog.fillRect(0, 0, this.getWidth(), this.getHeight());
+		this.bog.setColor(this.getForeground());
+		this.paint(this.bog);
+		g.drawImage(this.boi, 0, 0, this);
 	}
-	
-	//repaints new iteration, following rules for deaths and births
-	public void runLife(){
-		if(states.size() >= savedEvolutions) states.remove(0); //saves fixed # of previous automata states
-		states.add(currentState.clone());
-		newState = currentState.clone(); //build new state off previous
-		
-		//kill if surrounded by fewer than pop min, greater than max, birth if surrounded by reproduction amount
-		for(int r = 0; r < vCells; r++){
-		for(int c = 0; c < hCells; c++){
-			int neighbors = checkLegalCells(r, c);
-			if((neighbors < min || neighbors > max) && currentState.getCell(r, c) != null) newState.removeCell(currentState.getCell(r, c));
-			if(neighbors == birthVal) newState.addCell(new Cell(c * cellWidth, r * cellWidth));
+
+	// repaints new iteration, following rules for deaths and births
+	public void runLife() {
+		int min = 2;
+		int max = 2;
+		int birthVal = 3;
+
+		if (this.states.size() >= this.savedEvolutions)
+			this.states.remove(0); // saves fixed # of previous automata states
+		this.states.add(this.currentState.clone());
+		this.newState = this.currentState.clone(); // build new state off previous
+
+		// kill if surrounded by fewer than pop min, greater than max, birth if
+		// surrounded by reproduction amount
+		for (int r = 0; r < this.vCells; r++) {
+			for (int c = 0; c < this.hCells; c++) {
+				int neighbors = this.checkLegalCells(r, c);
+				if ((neighbors < min || neighbors > max) && this.currentState.getCell(r, c) != null)
+					this.newState.removeCell(this.currentState.getCell(r, c));
+				if (neighbors == birthVal)
+					this.newState.addCell(new Cell(c * this.cellWidth, r * this.cellWidth));
+			}
 		}
-		}
-		
-		currentState = newState.clone(); //replace current state with new
-		repaint();
+
+		this.currentState = this.newState.clone(); // replace current state with new
+		this.repaint();
 	}
-	
-	//determines which cells to check depending on location of cell relative to number of cells in x,y direction
-	public int checkLegalCells(int r, int c){
-		//determine position in array
-		boolean isTop    = (r == 0); 
-		boolean isBottom = (r == vCells - 1);
-		boolean isLeft   = (c == 0);
-		boolean isRight  = (c == hCells - 1);
-		
-		//wrap values around AKA nifty toroidal action!
-		int top    = (isTop)?    vCells - 1 : r-1;
-		int bottom = (isBottom)? 0          : r+1;
-		int left   = (isLeft)?   hCells - 1 : c-1;
-		int right  = (isRight)?  0          : c+1;
-		
-		//create neighbors based on the left right top and bottom values found
-		int[][] neighbors = new int[][]{
-				{top,    left},{top,    c},{top,    right},
-				{r,      left}            ,{r,      right},
-				{bottom, left},{bottom, c},{bottom, right}};
-		
-		int adjacentCells = 0;	
-		for(int i=0;i<8;i++) if(currentState.getCell(neighbors[i][0],neighbors[i][1]) != null) adjacentCells++; //add all the neighbors together
-		return adjacentCells;
+
+	// determines which cells to check depending on location of cell relative to
+	// number of cells in x,y direction
+	public int checkLegalCells(int r, int c) {
+		// determine position in array
+		boolean isTop = r == 0;
+		boolean isBottom = r == this.vCells - 1;
+		boolean isLeft = c == 0;
+		boolean isRight = c == this.hCells - 1;
+
+		// wrap values around AKA nifty toroidal action!
+		int top = isTop ? this.vCells - 1 : r - 1;
+		int bottom = isBottom ? 0 : r + 1;
+		int left = isLeft ? this.hCells - 1 : c - 1;
+		int right = isRight ? 0 : c + 1;
+
+		// create neighbors based on the left right top and bottom values found
+		int[][] neighbors = new int[][] { { top, left }, { top, c }, { top, right }, { r, left }, { r, right },
+			{ bottom, left }, { bottom, c }, { bottom, right } };
+
+			int adjacentCells = 0;
+			for (int i = 0; i < 8; i++)
+				if (this.currentState.getCell(neighbors[i][0], neighbors[i][1]) != null)
+					adjacentCells++; // add all the neighbors together
+			return adjacentCells;
 	}
-	
-	//only draw cells within applet size
+
+	// only draw cells within applet size
 	@Override
 	public void componentResized(ComponentEvent e) {
-		timer.stop();
-		vCells = getHeight() / cellWidth;
-		hCells = getWidth() / cellWidth;
-		currentState.sizeChange(vCells, hCells);
-		newState.sizeChange(vCells, hCells);
+		this.timer.stop();
+		this.vCells = this.getHeight() / this.cellWidth;
+		this.hCells = this.getWidth() / this.cellWidth;
+		this.currentState.sizeChange(this.vCells, this.hCells);
+		this.newState.sizeChange(this.vCells, this.hCells);
 	}
-	
+
 	@Override
-	public void keyPressed(KeyEvent e) { 
-		switch(e.getKeyCode()){
-			case KeyEvent.VK_SPACE:
-				if(cellsInput) cellsInput = false;
-				if(!timer.isRunning()) timer.start();
-				else timer.stop();
-				break;
-			case KeyEvent.VK_RIGHT:
-				timer.stop();
-				if(delayInSeconds > .05) delayInSeconds -= .025;
-				timer = new Timer((int) (delayInSeconds * 1000), this);
-				timer.start();
-				break;
-			case KeyEvent.VK_LEFT:
-				timer.stop();
-				delayInSeconds += .025; 
-				timer = new Timer((int) (delayInSeconds * 1000), this);
-				timer.start();
-				break;
-			case KeyEvent.VK_UP:
-				if (colorIterator.hasPrevious()){
-					cellColor = colorIterator.previous();
-					bgColor = new HSLColor(cellColor).getComplementary();
-					repaint();
-				}
-				break;
-			case KeyEvent.VK_DOWN:
-				if (colorIterator.hasNext()){
-					cellColor = colorIterator.next();
-					bgColor = new HSLColor(cellColor).getComplementary();
-					repaint();
-				}
-				break;
-			case KeyEvent.VK_G:
-				drawGrid = !drawGrid;
-				repaint();
-				break;
-			case KeyEvent.VK_P:
-				drawPulsar = !drawPulsar;
-				break;
-			case KeyEvent.VK_B:
-				int initX = 8 * cellWidth;
-				int initY = 14 * cellWidth;
-				int pulsarWidthFromInit = cellWidth * 10;
-				for(int shift = 0; shift <= 9 * cellWidth; shift += 9 * cellWidth){
-					for(int x = initX + (shift); x < getWidth() - pulsarWidthFromInit; x += (cellWidth * 18)){
-					for(int y = initY + (2 * shift); y < getHeight() - pulsarWidthFromInit; y += 2 * (cellWidth * 18)){
-						for(int i = 0; i <= 4; i++){
-							currentState.addCell(new Cell(x, y + i * cellWidth));
-							currentState.addCell(new Cell(x + 4 * cellWidth, y + i * cellWidth));
+	public void keyPressed(KeyEvent e) {
+		switch (e.getKeyCode()) {
+		case KeyEvent.VK_SPACE:
+			if (this.cellsInput)
+				this.cellsInput = false;
+			if (!this.timer.isRunning())
+				this.timer.start();
+			else
+				this.timer.stop();
+			break;
+		case KeyEvent.VK_RIGHT:
+			this.timer.stop();
+			if (this.delayInSeconds > .05)
+				this.delayInSeconds -= .025;
+			this.timer = new Timer((int) (this.delayInSeconds * 1000), this);
+			this.timer.start();
+			break;
+		case KeyEvent.VK_LEFT:
+			this.timer.stop();
+			this.delayInSeconds += .025;
+			this.timer = new Timer((int) (this.delayInSeconds * 1000), this);
+			this.timer.start();
+			break;
+		case KeyEvent.VK_UP:
+			if (this.colorIterator.hasPrevious()) {
+				this.cellColor = this.colorIterator.previous();
+				this.bgColor = new HSLColor(this.cellColor).getComplementary();
+				this.repaint();
+			}
+			break;
+		case KeyEvent.VK_DOWN:
+			if (this.colorIterator.hasNext()) {
+				this.cellColor = this.colorIterator.next();
+				this.bgColor = new HSLColor(this.cellColor).getComplementary();
+				this.repaint();
+			}
+			break;
+		case KeyEvent.VK_G:
+			this.drawGrid = !this.drawGrid;
+			this.repaint();
+			break;
+		case KeyEvent.VK_P:
+			this.drawPulsar = !this.drawPulsar;
+			break;
+		case KeyEvent.VK_B:
+			// draw a number of pulsars within the screen constraints
+			int initX = 8 * this.cellWidth;
+			int initY = 14 * this.cellWidth;
+			int pulsarWidthFromInit = this.cellWidth * 10;
+			for (int shift = 0; shift <= 9 * this.cellWidth; shift += 9 * this.cellWidth) {
+				for (int x = initX + shift; x < this.getWidth() - pulsarWidthFromInit; x += this.cellWidth * 18) {
+					for (int y = initY + 2 * shift; y < this.getHeight() - pulsarWidthFromInit; y += 2
+							* this.cellWidth * 18) {
+						for (int i = 0; i <= 4; i++) {
+							this.currentState.addCell(new Cell(x, y + i * this.cellWidth));
+							this.currentState.addCell(new Cell(x + 4 * this.cellWidth, y + i * this.cellWidth));
 						}
-						currentState.addCell(new Cell(x + 2 * cellWidth, y));
-						currentState.addCell(new Cell(x + 2 * cellWidth, y + 4 * cellWidth));
-					}
+						this.currentState.addCell(new Cell(x + 2 * this.cellWidth, y));
+						this.currentState.addCell(new Cell(x + 2 * this.cellWidth, y + 4 * this.cellWidth));
 					}
 				}
-				repaint();
-				break;
-			default:
-				System.out.println("Ayy lmao");
+			}
+			this.repaint();
+			break;
 		}
 	}
-	
-	public void componentShown(ComponentEvent e){ 
-		System.out.println("Hey, that's pretty good");
-	}
-	
-	//ignored inherited methods...
-	
-	public void mouseEntered(MouseEvent e) { } public void mouseExited(MouseEvent e) { } public void mousePressed(MouseEvent e) { } 
-	public void mouseReleased(MouseEvent e) { } public void mouseMoved(MouseEvent e) {} public void componentHidden(ComponentEvent e) { }
-	public void componentMoved(ComponentEvent e) { } public void keyReleased(KeyEvent e) { } public void keyTyped(KeyEvent e) { }
-	
-}
 
-class Cell extends ColorfulCellularAutomaton{
-	private static final long serialVersionUID = 1L;
-	private int cellWidth = super.cellWidth;
-	private int x, y, row, column;
-	protected static Color rosie = Color.decode("#D0000D"), shane = Color.decode("#6FADE9"), papa = Color.decode("#9AA9A"),
-			bless = Color.decode("#B77355"), goofs = Color.decode("#600F5"), and = Color.decode("#AAA5D"), gaffs = Color.decode("#6AFF5");
-	protected static ArrayList<Color> colors = new ArrayList<>(Arrays.asList(rosie, shane, papa, bless, goofs, and, gaffs));
-	
-	//defines coordinate in terms of ints, row/column determined relative to x,y coordinate
-	public Cell(int x, int y){ 
-		this.x = x;
-		this.y = y;
-		row    = y / cellWidth;
-		column = x / cellWidth;
+	// ignored inherited methods...
+	@Override
+	public void componentShown(ComponentEvent e) {
 	}
-	
-	public int getX(){ return x; }
-	public int getY(){ return y; }
-	public int getRow(){ return row; }
-	public int getColumn(){ return column; }
+
+	@Override
+	public void mouseEntered(MouseEvent e) {
+	}
+
+	@Override
+	public void mouseExited(MouseEvent e) {
+	}
+
+	@Override
+	public void mousePressed(MouseEvent e) {
+	}
+
+	@Override
+	public void mouseReleased(MouseEvent e) {
+	}
+
+	@Override
+	public void mouseMoved(MouseEvent e) {
+	}
+
+	@Override
+	public void componentHidden(ComponentEvent e) {
+	}
+
+	@Override
+	public void componentMoved(ComponentEvent e) {
+	}
+
+	@Override
+	public void keyReleased(KeyEvent e) {
+	}
+
+	@Override
+	public void keyTyped(KeyEvent e) {
+	}
+
 }
